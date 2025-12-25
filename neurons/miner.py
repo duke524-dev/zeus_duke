@@ -159,13 +159,32 @@ class Miner(BaseMinerNeuron):
         Returns:
             TimePredictionSynapse: The synapse object with the 'predictions' field set".
         """
-        # shape (lat, lon, 2) so a grid of locations
+        # Start timing
+        process_start_time = time.time()
+        timing_breakdown = {}
+        
+        # Log incoming synapse details
         coordinates = torch.Tensor(synapse.locations)
         start_time = to_timestamp(synapse.start_time)
         end_time = to_timestamp(synapse.end_time)
-        bt.logging.debug(
-            f"Received request! Predicting {synapse.requested_hours} hours of {synapse.variable} for grid of shape {coordinates.shape}."
-        )
+        
+        bt.logging.info("=" * 80)
+        bt.logging.info("INCOMING SYNAPSE:")
+        bt.logging.info(f"  Variable: {synapse.variable}")
+        bt.logging.info(f"  Requested Hours: {synapse.requested_hours}")
+        bt.logging.info(f"  Start Time: {start_time} (timestamp: {synapse.start_time})")
+        bt.logging.info(f"  End Time: {end_time} (timestamp: {synapse.end_time})")
+        bt.logging.info(f"  Locations Grid Shape: {coordinates.shape}")
+        bt.logging.info(f"  Number of Locations: {len(synapse.locations)}")
+        bt.logging.info(f"  Validator Version: {synapse.version}")
+        bt.logging.info(f"  Predictions (incoming): {len(synapse.predictions) if synapse.predictions else 0} elements")
+        if len(synapse.locations) > 0:
+            bt.logging.info(f"  First Location: {synapse.locations[0]}")
+            bt.logging.info(f"  Last Location: {synapse.locations[-1]}")
+        bt.logging.info("=" * 80)
+        
+        # Timing: Initial setup
+        timing_breakdown['initial_setup'] = time.time() - process_start_time
 
         ##########################################################################################################
         # Step 1: Fetch forecasts from 4 OpenMeteo models
@@ -221,11 +240,13 @@ class Miner(BaseMinerNeuron):
                 return (model_name, None, e)  # (name, None, error)
         
         # Execute all 4 API calls in parallel
+        api_start_time = time.time()
         bt.logging.debug("Fetching forecasts from 4 models in parallel...")
         results = await asyncio.gather(*[
             fetch_model_forecast(model_name) 
             for model_name in self.additional_models
         ])
+        timing_breakdown['api_calls'] = time.time() - api_start_time
         
         # Process results and handle errors
         model_forecasts = []
@@ -258,10 +279,13 @@ class Miner(BaseMinerNeuron):
         
         # Step 2: Stack all forecasts as input features [time, lat, lon, num_models]
         # Stack: 4 models = 4 forecasts total
+        data_processing_start = time.time()
         all_forecasts = torch.stack(model_forecasts, dim=-1)
         # Shape: [requested_hours, lat_grid, lon_grid, 4]
+        timing_breakdown['data_processing'] = time.time() - data_processing_start
         
         # Step 3: Pass to trained model if available
+        model_inference_start = time.time()
         if synapse.variable in self.models:
             bt.logging.debug(f"Using trained model for {synapse.variable}")
             try:
@@ -283,11 +307,55 @@ class Miner(BaseMinerNeuron):
                 output = first_successful_forecast
             else:
                 raise RuntimeError(f"No trained model available and no forecasts fetched for {synapse.variable}")
+        timing_breakdown['model_inference'] = time.time() - model_inference_start
         ##########################################################################################################
         bt.logging.debug(f"Output shape is {output.shape}")
 
+        output_preparation_start = time.time()
         synapse.predictions = output.tolist()
         synapse.version = zeus_version
+        timing_breakdown['output_preparation'] = time.time() - output_preparation_start
+        
+        # Log outgoing synapse details
+        # Calculate total processing time
+        process_end_time = time.time()
+        total_processing_time = process_end_time - process_start_time
+        
+        bt.logging.info("=" * 80)
+        bt.logging.info("OUTGOING SYNAPSE:")
+        bt.logging.info(f"  Variable: {synapse.variable}")
+        bt.logging.info(f"  Requested Hours: {synapse.requested_hours}")
+        bt.logging.info(f"  Predictions Shape: {output.shape}")
+        bt.logging.info(f"  Predictions List Length: {len(synapse.predictions)}")
+        if len(synapse.predictions) > 0:
+            bt.logging.info(f"  First Prediction Shape: {len(synapse.predictions[0]) if isinstance(synapse.predictions[0], list) else 'scalar'}")
+            if len(synapse.predictions) > 0 and len(synapse.predictions[0]) > 0:
+                first_pred = synapse.predictions[0][0]
+                if isinstance(first_pred, list):
+                    bt.logging.info(f"  First Prediction Value Shape: {len(first_pred)}")
+                    bt.logging.info(f"  First Prediction Value Range: [{min(first_pred):.4f}, {max(first_pred):.4f}]")
+                else:
+                    bt.logging.info(f"  First Prediction Value: {first_pred:.4f}")
+        bt.logging.info(f"  Miner Version: {synapse.version}")
+        bt.logging.info("-" * 80)
+        bt.logging.info("⏱️  TIMING BREAKDOWN:")
+        bt.logging.info(f"  Initial Setup:        {timing_breakdown.get('initial_setup', 0):.4f}s ({timing_breakdown.get('initial_setup', 0)*1000:.2f}ms)")
+        bt.logging.info(f"  API Calls (parallel):  {timing_breakdown.get('api_calls', 0):.4f}s ({timing_breakdown.get('api_calls', 0)*1000:.2f}ms)")
+        bt.logging.info(f"  Data Processing:       {timing_breakdown.get('data_processing', 0):.4f}s ({timing_breakdown.get('data_processing', 0)*1000:.2f}ms)")
+        bt.logging.info(f"  Model Inference:       {timing_breakdown.get('model_inference', 0):.4f}s ({timing_breakdown.get('model_inference', 0)*1000:.2f}ms)")
+        bt.logging.info(f"  Output Preparation:    {timing_breakdown.get('output_preparation', 0):.4f}s ({timing_breakdown.get('output_preparation', 0)*1000:.2f}ms)")
+        bt.logging.info("-" * 80)
+        bt.logging.info(f"⏱️  TOTAL PROCESSING TIME: {total_processing_time:.4f} seconds ({total_processing_time*1000:.2f} ms)")
+        
+        # Calculate percentage breakdown
+        if total_processing_time > 0:
+            bt.logging.info("  Time Distribution:")
+            for stage, duration in timing_breakdown.items():
+                percentage = (duration / total_processing_time) * 100
+                bt.logging.info(f"    {stage.replace('_', ' ').title()}: {percentage:.1f}%")
+        
+        bt.logging.info("=" * 80)
+        
         return synapse
     
 
