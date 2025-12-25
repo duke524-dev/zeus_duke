@@ -67,7 +67,7 @@ setup(
     description="Zeus Environmental Forecasting Subnet - Zeus Duke Fork",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/YourUsername/zeus_duke",
+    url="https://github.com/duke524-dev/zeus_duke",
     author="Zeus Duke",
     packages=find_packages(),
     include_package_data=True,

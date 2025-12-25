@@ -17,7 +17,7 @@
 
 Download the repository and navigate to the folder.
 ```bash
-git clone https://github.com/YourUsername/zeus_duke.git && cd zeus_duke
+git clone https://github.com/duke524-dev/zeus_duke.git && cd zeus_duke
 ```
 
 We recommend using a Conda virtual environment to install the necessary Python packages.<br>
