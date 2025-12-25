@@ -42,10 +42,12 @@ class TemperatureConverter(VariableConverter):
 class PrecipitationConverter(VariableConverter):
 
     def era5_to_om(self, data: Union[float, np.ndarray, torch.Tensor]) -> Union[float, np.ndarray, torch.Tensor]:
-        return data * 1e3
+        # ERA5 stores in mm, OpenMeteo expects mm/h - both are in mm, no conversion needed
+        return data
     
     def om_to_era5(self, data: Union[float, np.ndarray, torch.Tensor]) -> Union[float, np.ndarray, torch.Tensor]:
-        return data / 1e3
+        # OpenMeteo provides mm/h, ERA5 expects mm - keep as mm (no conversion)
+        return data
     
 
 class WindConverter(VariableConverter, ABC):
@@ -101,7 +103,7 @@ class SurfacePressureConverter(VariableConverter):
 
 REGISTRY = {converter.data_var: converter for converter in [
         TemperatureConverter("2m_temperature", om_name="temperature_2m", short_code="t2m", unit="K"), 
-        PrecipitationConverter("total_precipitation", om_name="precipitation", short_code="tp", unit="m/h"),
+        PrecipitationConverter("total_precipitation", om_name="precipitation", short_code="tp", unit="mm"),
         EastWindConverter(
             "100m_u_component_of_wind", 
             om_name=["wind_speed_100m", "wind_direction_100m"],
