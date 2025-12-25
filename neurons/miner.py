@@ -2,6 +2,7 @@
 # Copyright © 2023 Yuma Rao
 # developer: Eric (Ørpheus A.I.)
 # Copyright © 2025 Ørpheus A.I.
+# Copyright © 2025 Zeus Duke
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation

@@ -91,7 +91,7 @@ class Validator(BaseValidatorNeuron):
         
         webhook = DiscordWebhook(
             url=self.discord_hook, 
-            avatar_url="https://raw.githubusercontent.com/Orpheus-AI/Zeus/refs/heads/v1/static/zeus-icon.png",
+            avatar_url="https://raw.githubusercontent.com/YourUsername/zeus_duke/refs/heads/main/static/zeus-icon.png",
             username="Zeus Subnet Bot",
             content=f"Your validator had an error -- see below!",
             timeout=5,

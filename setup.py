@@ -2,6 +2,7 @@
 # Copyright © 2023 Yuma Rao
 # developer: Eric (Ørpheus A.I.)
 # Copyright © 2025 Ørpheus A.I.
+# Copyright © 2025 Zeus Duke
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation
@@ -61,16 +62,16 @@ with codecs.open(os.path.join(here, "zeus/__init__.py"), encoding="utf-8") as in
     version_string = version_match.group(1)
 
 setup(
-    name="Zeus",
+    name="zeus-duke",
     version=version_string,
-    description="Zeus subnet by Orpheus A.I. (Incubated by BitMind)",
+    description="Zeus Environmental Forecasting Subnet - Zeus Duke Fork",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Orpheus-AI/Zeus",
-    author="orpheus-ai.nl",
+    url="https://github.com/YourUsername/zeus_duke",
+    author="Zeus Duke",
     packages=find_packages(),
     include_package_data=True,
-    author_email="eric@orpheus-ai.nl",
+    author_email="",
     license="MIT",
     python_requires=">=3.8",
     install_requires=requirements,

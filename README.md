@@ -1,12 +1,14 @@
 <p align="center">
-  <img src="static/zeus-icon.png" alt="Zeus Logo" width="150"/>
+  <img src="static/zeus-icon.png" alt="Zeus Duke Logo" width="150"/>
 </p>
-<h1 align="center">SN18: Zeus Environmental Forecasting Subnet<br><small>Ørpheus AI</small></h1>
+<h1 align="center">SN18: Zeus Environmental Forecasting Subnet<br><small>Zeus Duke</small></h1>
 
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-Welcome to the Zeus Subnet! This repository contains all the necessary information to get started, understand our subnet architecture, and contribute.
+Welcome to Zeus Duke! This repository contains all the necessary information to get started, understand our subnet architecture, and contribute.
+
+> **Note**: This project is based on the [Zeus Subnet](https://github.com/Orpheus-AI/Zeus) by Ørpheus A.I., licensed under the MIT License.
 
 
 ## Quick Links
@@ -39,11 +41,20 @@ Traditionally, environmental forecasting is achieved through physics-based numer
 ## Community
 For real-time discussions, community support, and regular updates, <a href="https://discord.com/invite/bittensor">join the bittensor discord</a>. Connect with developers, researchers, and users to get the most out of the Zeus Subnet.
 
+## Acknowledgments
+This project is based on the [Zeus Subnet](https://github.com/Orpheus-AI/Zeus) by Ørpheus A.I., which is licensed under the MIT License.
+
+Original Copyright:
+- Copyright © 2023 Yuma Rao
+- Copyright © 2025 Ørpheus A.I.
+
 ## License
 This repository is licensed under the MIT License.
 ```text
 # The MIT License (MIT)
-# Copyright © 2024 Opentensor Foundation
+# Copyright © 2023 Opentensor Foundation
+# Copyright © 2025 Ørpheus A.I.
+# Copyright © 2025 Zeus Duke
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation

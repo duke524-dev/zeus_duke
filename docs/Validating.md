@@ -34,7 +34,7 @@ Set its storage to at least **60GB** (80 is recommended).
 
 4. Download the repository and navigate to the folder.
 ```bash
-git clone https://github.com/Orpheus-AI/Zeus.git && cd Zeus
+git clone https://github.com/YourUsername/zeus_duke.git && cd zeus_duke
 ```
 
 5. Install the necessary requirements with the following script (make sure zeus-venv is active!)
@@ -81,7 +81,7 @@ PROXY_PORT=
 
 # API Keys:
 WANDB_API_KEY=                  # https://wandb.ai/authorize
-CDS_API_KEY=                    # https://github.com/Orpheus-AI/Zeus/blob/main/docs/Validating.md#ecmwf
+CDS_API_KEY=                    # https://github.com/YourUsername/zeus_duke/blob/main/docs/Validating.md#ecmwf
 OPEN_METEO_API_KEY=             # https://open-meteo.com/en/pricing#plans (Cheapest one suffices)
 PROXY_API_KEY=                  # Your Proxy API Key, you can generate it yourself
 
