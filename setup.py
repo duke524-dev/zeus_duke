@@ -24,8 +24,7 @@ import codecs
 import pathlib
 from os import path
 from io import open
-from setuptools import setup, find_packages
-from pkg_resources import parse_requirements
+from setuptools import setup, find_packages  # type: ignore[import-untyped]
 
 
 def read_requirements(path):

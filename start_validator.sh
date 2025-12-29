@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Ensure Node 20 is used for PM2
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use 20 > /dev/null 2>&1
+
 # Load environment variables from .env file & set defaults
 set -a
 source validator.env

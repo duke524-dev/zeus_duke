@@ -1,6 +1,7 @@
 bittensor
 starlette
 pydantic
+setuptools
 
 torch
 dask
@@ -10,6 +11,7 @@ pandas
 xarray
 numpy
 h5netcdf
+scikit-learn==1.7.2
 
 ipython
 ipykernel

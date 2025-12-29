@@ -54,7 +54,7 @@ class BaseMinerNeuron(BaseNeuron):
                 "You are allowing non-registered entities to send requests to your miner. This is a security risk."
             )
         # The axon handles request processing, allowing validators to send this miner requests.
-        self.axon = bt.axon(
+        self.axon = bt.Axon(
             wallet=self.wallet,
             config=self.config() if callable(self.config) else self.config,
         )
@@ -186,8 +186,24 @@ class BaseMinerNeuron(BaseNeuron):
         """Resyncs the metagraph and updates the hotkeys and moving averages based on the new metagraph."""
         bt.logging.info("resync_metagraph()")
 
-        # Sync the metagraph.
-        self.metagraph.sync(subtensor=self.subtensor)
+        # Sync the metagraph with retry logic
+        max_retries = 3
+        base_delay = 1
+        
+        for attempt in range(max_retries):
+            try:
+                self.metagraph.sync(subtensor=self.subtensor)
+                break
+            except (TimeoutError, ConnectionError, Exception) as e:
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    bt.logging.warning(f"Failed to sync metagraph (attempt {attempt + 1}/{max_retries}): {e}")
+                    bt.logging.debug(f"Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                else:
+                    bt.logging.error(f"Failed to sync metagraph after {max_retries} attempts: {e}")
+                    # Don't raise - allow miner to continue with old metagraph state
+                    bt.logging.warning("Continuing with previous metagraph state")
 
 
     async def _blacklist(

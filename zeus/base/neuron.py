@@ -17,6 +17,7 @@
 
 import copy
 import typing
+import time
 
 import bittensor as bt
 
@@ -82,9 +83,87 @@ class BaseNeuron(ABC):
             # self.subtensor = MockSubtensor(self.config.netuid, wallet=self.wallet)
             # self.metagraph = MockMetagraph(self.config.netuid, subtensor=self.subtensor)
         else:
-            self.wallet = bt.wallet(config=self.config)
-            self.subtensor = bt.subtensor(config=self.config)
-            self.metagraph = self.subtensor.metagraph(self.config.netuid)
+            self.wallet = bt.Wallet(config=self.config)
+            
+            # Retry logic for subtensor connection with exponential backoff
+            max_retries = 5
+            base_delay = 2  # Start with 2 seconds
+            subtensor_connected = False
+            
+            for attempt in range(max_retries):
+                try:
+                    bt.logging.info(f"Connecting to subtensor (attempt {attempt + 1}/{max_retries})...")
+                    self.subtensor = bt.Subtensor(config=self.config)
+                    # Test the connection by accessing a property
+                    _ = self.subtensor.network
+                    bt.logging.success("Successfully connected to subtensor")
+                    subtensor_connected = True
+                    break
+                except Exception as e:
+                    error_type = type(e).__name__
+                    error_msg = str(e)
+                    # Check if it's a timeout or connection error
+                    is_timeout = (
+                        "timeout" in error_msg.lower() or 
+                        "timed out" in error_msg.lower() or
+                        isinstance(e, (TimeoutError, ConnectionError, OSError))
+                    )
+                    
+                    if attempt < max_retries - 1 and is_timeout:
+                        delay = base_delay * (2 ** attempt)  # Exponential backoff: 2, 4, 8, 16, 32 seconds
+                        bt.logging.warning(
+                            f"Failed to connect to subtensor (attempt {attempt + 1}/{max_retries}): {error_type}: {error_msg}"
+                        )
+                        bt.logging.info(f"Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                    elif attempt < max_retries - 1:
+                        # Non-timeout error, retry once more
+                        delay = base_delay
+                        bt.logging.warning(
+                            f"Connection error (attempt {attempt + 1}/{max_retries}): {error_type}: {error_msg}"
+                        )
+                        bt.logging.info(f"Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                    else:
+                        bt.logging.error(f"Failed to connect to subtensor after {max_retries} attempts: {error_type}: {error_msg}")
+                        raise
+            
+            if not subtensor_connected:
+                raise RuntimeError("Failed to establish subtensor connection after all retry attempts")
+            
+            # Retry logic for metagraph creation with exponential backoff
+            metagraph_loaded = False
+            for attempt in range(max_retries):
+                try:
+                    bt.logging.info(f"Loading metagraph (attempt {attempt + 1}/{max_retries})...")
+                    self.metagraph = self.subtensor.metagraph(self.config.netuid)
+                    # Verify metagraph loaded successfully
+                    _ = self.metagraph.n
+                    bt.logging.success("Successfully loaded metagraph")
+                    metagraph_loaded = True
+                    break
+                except Exception as e:
+                    error_type = type(e).__name__
+                    error_msg = str(e)
+                    is_timeout = (
+                        "timeout" in error_msg.lower() or 
+                        "timed out" in error_msg.lower() or
+                        isinstance(e, (TimeoutError, ConnectionError, OSError))
+                    )
+                    
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)
+                        bt.logging.warning(
+                            f"Failed to load metagraph (attempt {attempt + 1}/{max_retries}): {error_type}: {error_msg}"
+                        )
+                        bt.logging.info(f"Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                    else:
+                        bt.logging.error(f"Failed to load metagraph after {max_retries} attempts: {error_type}: {error_msg}")
+                        raise
+            
+            if not metagraph_loaded:
+                raise RuntimeError("Failed to load metagraph after all retry attempts")
 
         bt.logging.info(f"Wallet: {self.wallet}")
         bt.logging.info(f"Subtensor: {self.subtensor}")
@@ -106,9 +185,25 @@ class BaseNeuron(ABC):
     def sync(self):
         """
         Wrapper for synchronizing the state of the network for the given miner or validator.
+        Includes retry logic for network operations.
         """
         # Ensure miner or validator hotkey is still registered on the network.
-        self.check_registered()
+        max_retries = 3
+        base_delay = 1
+        
+        for attempt in range(max_retries):
+            try:
+                self.check_registered()
+                break
+            except (TimeoutError, ConnectionError, Exception) as e:
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    bt.logging.warning(f"Failed to check registration (attempt {attempt + 1}/{max_retries}): {e}")
+                    bt.logging.debug(f"Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                else:
+                    bt.logging.error(f"Failed to check registration after {max_retries} attempts: {e}")
+                    raise
 
         if self.should_sync_metagraph():
             self.resync_metagraph()

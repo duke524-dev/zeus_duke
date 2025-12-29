@@ -19,19 +19,20 @@
 # DEALINGS IN THE SOFTWARE.
 
 import time
-import torch
+import torch  # type: ignore[import-untyped]
 import typing
 import pickle
 import asyncio
 import hashlib
 import json
+import warnings
 from pathlib import Path
 from collections import OrderedDict
-import bittensor as bt
+import bittensor as bt  # type: ignore[import-untyped]
 
-import openmeteo_requests
+import openmeteo_requests  # type: ignore[import-untyped]
 
-import numpy as np
+import numpy as np  # type: ignore[import-untyped]
 from zeus.data.converter import get_converter
 from zeus.utils.config import get_device_str
 from zeus.utils.time import to_timestamp
@@ -80,8 +81,11 @@ class Miner(BaseMinerNeuron):
                     # Get most recent model by timestamp
                     latest_model = max(model_files, key=lambda p: p.stat().st_mtime)
                     try:
-                        with open(latest_model, 'rb') as f:
-                            self.models[variable] = pickle.load(f)
+                        # Suppress scikit-learn version mismatch warnings when loading models
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+                            with open(latest_model, 'rb') as f:
+                                self.models[variable] = pickle.load(f)
                         bt.logging.info(f"Loaded model for {variable}: {latest_model.name}")
                     except Exception as e:
                         bt.logging.error(f"Failed to load model for {variable}: {e}")
@@ -114,6 +118,79 @@ class Miner(BaseMinerNeuron):
                     bt.logging.debug(f"Pre-warmed scikit-learn model for {variable}")
             except Exception as e:
                 bt.logging.debug(f"Could not pre-warm model for {variable}: {e}")
+    
+    def reload_models(self):
+        """
+        Reload models from the trained_models directory.
+        Useful when new models are trained and copied to the folder without restarting the miner.
+        
+        This method:
+        1. Scans the trained_models directory for latest models
+        2. Loads new models (by timestamp, same logic as __init__)
+        3. Pre-warms the newly loaded models
+        4. Logs the reload status
+        """
+        bt.logging.info("=" * 80)
+        bt.logging.info("RELOADING MODELS")
+        bt.logging.info("=" * 80)
+        
+        model_dir = Path("trained_models")
+        reloaded_count = 0
+        failed_count = 0
+        
+        if not model_dir.exists():
+            bt.logging.warning(f"Model directory {model_dir} does not exist. Cannot reload models.")
+            return
+        
+        for variable in ERA5_DATA_VARS.keys():
+            model_files = list(model_dir.glob(f"model_{variable}_*.pkl"))
+            if model_files:
+                # Get most recent model by timestamp
+                latest_model = max(model_files, key=lambda p: p.stat().st_mtime)
+                
+                # Check if this is a new model (different from currently loaded)
+                current_model_name = None
+                if variable in self.models:
+                    # Try to get current model file name if stored
+                    current_model_name = getattr(self.models[variable], '__file__', None)
+                
+                try:
+                    # Suppress scikit-learn version mismatch warnings when loading models
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+                        with open(latest_model, 'rb') as f:
+                            new_model = pickle.load(f)
+                    
+                    # Replace the model
+                    old_model = self.models.get(variable)
+                    self.models[variable] = new_model
+                    reloaded_count += 1
+                    
+                    bt.logging.info(f"Reloaded model for {variable}: {latest_model.name}")
+                    
+                    # Pre-warm the new model
+                    try:
+                        if hasattr(new_model, 'forward'):
+                            dummy_input = torch.zeros(1, 4, dtype=torch.float32).to(self.device)
+                            new_model.eval()
+                            with torch.no_grad():
+                                _ = new_model(dummy_input)
+                        elif hasattr(new_model, 'predict'):
+                            dummy_input = np.zeros((1, 4), dtype=np.float32)
+                            _ = new_model.predict(dummy_input)
+                        bt.logging.debug(f"Pre-warmed reloaded model for {variable}")
+                    except Exception as e:
+                        bt.logging.warning(f"Could not pre-warm reloaded model for {variable}: {e}")
+                        
+                except Exception as e:
+                    bt.logging.error(f"Failed to reload model for {variable}: {e}")
+                    failed_count += 1
+            else:
+                bt.logging.warning(f"No model found for {variable} - keeping existing model if any")
+        
+        bt.logging.info("=" * 80)
+        bt.logging.info(f"MODEL RELOAD COMPLETE: {reloaded_count} reloaded, {failed_count} failed")
+        bt.logging.info("=" * 80)
     
     def _get_cache_key(self, model_name: str, base_params: dict) -> str:
         """Generate cache key from request parameters."""
@@ -466,7 +543,19 @@ class Miner(BaseMinerNeuron):
 
 # This is the main function, which runs the miner.
 if __name__ == "__main__":
+    import signal
+    
     with Miner() as miner:
+        # Setup signal handler for model reload (SIGUSR1)
+        def signal_handler(signum, frame):
+            """Handle SIGUSR1 signal to reload models."""
+            bt.logging.info("Received reload signal (SIGUSR1)")
+            miner.reload_models()
+        
+        signal.signal(signal.SIGUSR1, signal_handler)
+        bt.logging.info("Model reload signal handler installed. Send SIGUSR1 to reload models.")
+        bt.logging.info("  Usage: kill -USR1 <pid>  or  python reload_models.py")
+        
         while True:
             bt.logging.info(f"Miner running | uid {miner.uid} | {time.time()}")
             time.sleep(30)
